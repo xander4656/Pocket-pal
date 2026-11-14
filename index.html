@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pocket AI">
+<meta name="theme-color" content="#1c0f06">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Pocket AI</title>
+<style>
+:root{--bg:#1c0f06;--ink:#fff3e4;--dim:#d9b896;--amber:#ff9a1f;--orange:#ff6a1a;--card:rgba(255,236,210,.09);--line:rgba(255,200,140,.22)}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font:17px/1.5 ui-rounded,"SF Pro Rounded",system-ui,sans-serif;color:var(--ink);background:var(--bg);overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+background:radial-gradient(120% 70% at 50% 100%,rgba(255,106,26,.55),transparent 60%),radial-gradient(90% 55% at 50% 0%,rgba(255,154,31,.35),transparent 65%),var(--bg)}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+#av{width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 18px rgba(255,154,31,.7);border:0;background:#2a170a;cursor:pointer;flex:none}
+.t{flex:1;min-width:0}.t b{display:block;font-size:18px}.t small{color:var(--dim);font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;color:inherit}
+.pill{background:var(--amber);color:#2a1100;border:0;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer}
+.pill.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+#log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
+.empty{margin:auto;text-align:center;color:var(--dim);max-width:300px}
+.empty img{width:120px;height:120px;border-radius:50%;box-shadow:0 0 50px rgba(255,154,31,.8);margin-bottom:16px}
+.row{display:flex;gap:10px;align-items:flex-end;max-width:100%}
+.row.me{justify-content:flex-end}
+.row img{width:30px;height:30px;border-radius:50%;object-fit:cover;box-shadow:0 0 10px rgba(255,154,31,.7);flex:none}
+.msg{padding:10px 14px;border-radius:20px;max-width:82%;white-space:pre-wrap;word-wrap:break-word}
+.me .msg{background:var(--amber);color:#2a1100;border-bottom-right-radius:6px}
+.bot .msg{background:var(--card);border:1px solid var(--line);border-bottom-left-radius:6px}
+form{display:flex;gap:10px;padding:10px 16px 14px;border-top:1px solid var(--line);align-items:flex-end}
+textarea{flex:1;resize:none;max-height:120px;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:20px;padding:10px 14px;font:inherit;outline:none}
+textarea:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#sheet{position:fixed;inset:0;background:rgba(10,5,2,.7);display:none;align-items:flex-end;z-index:5}
+#sheet.open{display:flex}
+.panel{width:100%;max-height:86%;background:#271508;border-radius:24px 24px 0 0;border:1px solid var(--line);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+.panel h2{font-size:20px;padding:16px 18px 4px}.panel p.n{padding:0 18px 10px;color:var(--dim);font-size:14px}
+#list{overflow-y:auto;padding:0 14px 14px;display:flex;flex-direction:column;gap:10px}
+.m{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.m b{display:block;word-break:break-all;font-size:15px}.m small{color:var(--dim)}
+.h{font-weight:700;font-size:15px;color:var(--amber);padding:6px 2px 0}
+.acts{display:flex;gap:8px;margin-top:10px;align-items:center}
+.bar{height:8px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--orange));transition:width .2s}
+.st{font-size:13px;color:var(--dim);margin-top:6px}
+.warn{margin:16px;padding:12px 14px;border-radius:14px;background:rgba(255,106,26,.2);border:1px solid var(--orange)}
+@keyframes pulse{from{box-shadow:0 0 8px rgba(255,154,31,.6)}to{box-shadow:0 0 24px 4px rgba(255,154,31,1)}}
+.think img{animation:pulse 1s ease-in-out infinite alternate}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}.think img{animation:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="av" aria-label="Change avatar"></button>
+    <div class="t"><b>Pocket AI</b><small id="status">No model loaded</small></div>
+    <button class="pill" id="open">Models</button>
+  </header>
+  <div id="log"></div>
+  <form id="f">
+    <textarea id="in" rows="1" placeholder="Message" aria-label="Message"></textarea>
+    <button class="pill" id="send" type="submit">Send</button>
+  </form>
+</div>
+
+<div id="sheet" role="dialog" aria-label="AI library">
+  <div class="panel">
+    <h2>AI library</h2>
+    <p class="n">Models download from the internet once, then run on your phone with no connection. Start with a small one.</p>
+    <p class="n" id="off"></p>
+    <div id="warn"></div>
+    <div id="list"></div>
+    <div style="padding:10px 14px"><button class="pill ghost" id="close" style="width:100%">Close</button></div>
+  </div>
+</div>
+<input type="file" id="file" accept="image/*" hidden>
+
+<script type="module">
+import * as webllm from "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.79/+esm";
+
+const $ = s => document.querySelector(s);
+const log = $("#log"), input = $("#in"), status = $("#status"), list = $("#list");
+const DEFAULT_AV = "avatar.png";
+let avatar = localStorage.getItem("avatar") || DEFAULT_AV;
+let engine = null, busy = false, current = localStorage.getItem("model") || "";
+const history = [];
+const SYSTEM = "You are a friendly, thorough assistant running privately on the user’s own iPhone. Give clear, complete answers.";
+
+function setAvatar(src){avatar = src; $("#av").style.background = `center/cover url("${src}")`; document.querySelectorAll(".row img,.empty img").forEach(i => i.src = src);}
+setAvatar(avatar);
+$("#av").onclick = () => $("#file").click();
+$("#file").onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const img = new Image(); img.onload = () => {
+    const c = document.createElement("canvas"); c.width = c.height = 256;
+    const s = Math.min(img.width, img.height);
+    c.getContext("2d").drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,256,256);
+    const url = c.toDataURL("image/png");
+    try{localStorage.setItem("avatar",url)}catch{}
+    setAvatar(url);
+  }; img.src = URL.createObjectURL(f);
+};
+
+function emptyState(){
+  log.innerHTML = `<div class="empty"><img src="${avatar}" alt=""><p>${engine ? "Ask me anything. Everything stays on this phone." : "Open Models to download an AI. After that it works offline."}</p></div>`;
+}
+emptyState();
+
+function add(role, text){
+  if(log.querySelector(".empty")) log.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "row " + (role === "user" ? "me" : "bot");
+  const m = document.createElement("div"); m.className = "msg"; m.textContent = text;
+  if(role !== "user"){ const i = document.createElement("img"); i.src = avatar; i.alt = ""; row.append(i); }
+  row.append(m); log.append(row); log.scrollTop = log.scrollHeight; return m;
+}
+
+/* ---------- Model store ---------- */
+const hasGPU = !!navigator.gpu;
+if(!hasGPU) $("#warn").innerHTML = `<div class="warn">This browser doesn’t support WebGPU, which the AI needs. Update iOS and open this page in Safari.</div>`;
+
+const models = webllm.prebuiltAppConfig.model_list
+  .filter(m => !/vision|embed|snowflake/i.test(m.model_id) && (m.vram_required_MB || 9e9) <= 5200 && /q4f16_1|q4f32_1|q0f/.test(m.model_id) && !/q4f32_1.*1k/.test(m.model_id))
+  .sort((a,b) => (/llama/i.test(b.model_id) - /llama/i.test(a.model_id)) || a.vram_required_MB - b.vram_required_MB);
+
+/* Edit this list to change the library. "match" is checked against WebLLM's model ids; entries that don't exist are skipped. */
+const LIBRARY = [
+  {match:/^Llama-3\.2-1B-Instruct-q4f16_1/, title:"Quick Llama", blurb:"Fast and light. The best first download."},
+  {match:/^Llama-3\.2-3B-Instruct-q4f16_1/, title:"Smart Llama", blurb:"Better answers and longer replies. Needs a newer phone."},
+  {match:/^Qwen2\.5-Coder-1\.5B-Instruct-q4f16_1/, title:"Code helper", blurb:"Writes and explains code."},
+  {match:/^gemma-2-2b-it-q4f16_1/, title:"Gemma", blurb:"Clear, careful writing from Google."},
+  {match:/^Phi-3\.5-mini-instruct-q4f16_1-MLC$/, title:"Phi", blurb:"Good at reasoning and maths."},
+  {match:/^SmolLM2-360M-Instruct-q4f16_1/, title:"Pocket mini", blurb:"Tiny and quick. Best for older phones."}
+];
+
+async function renderList(){
+  list.innerHTML = "";
+  const picked = LIBRARY.map(l => ({meta:l, m:models.find(x => l.match.test(x.model_id))})).filter(x => x.m);
+  const rest = models.filter(m => !picked.some(p => p.m === m)).map(m => ({m}));
+  const heading = t => { const h = document.createElement("div"); h.className = "h"; h.textContent = t; list.append(h); };
+  if(picked.length) heading("Library");
+  let restShown = false;
+  for(const {m, meta} of [...picked, ...rest]){
+    if(!meta && !restShown){ restShown = true; heading("All models"); }
+    const id = m.model_id, cached = await webllm.hasModelInCache(id);
+    const el = document.createElement("div"); el.className = "m";
+    const mb = Math.round(m.vram_required_MB || 0);
+    el.innerHTML = `<b>${meta ? meta.title : id.replace(/-MLC$/,"")}</b>${meta ? `<small style="display:block;margin:2px 0 4px">${meta.blurb}</small>` : ""}<small>${mb ? "Needs about " + (mb/1024).toFixed(1) + " GB of memory" : ""}${cached ? " · Downloaded" : ""}${id===current && engine ? " · In use" : ""}</small>
+      <div class="acts"></div><div class="bar" hidden><i></i></div><div class="st"></div>`;
+    const acts = el.querySelector(".acts");
+    const use = document.createElement("button"); use.className = "pill";
+    use.textContent = cached ? "Use" : "Download and use";
+    use.disabled = !hasGPU || busy; use.onclick = () => load(id, el);
+    acts.append(use);
+    if(cached){
+      const del = document.createElement("button"); del.className = "pill ghost"; del.textContent = "Delete";
+      del.onclick = async () => { if(id===current){engine=null;current="";status.textContent="No model loaded";}
+        await webllm.deleteModelAllInfoInCache(id); renderList(); };
+      acts.append(del);
+    }
+    list.append(el);
+  }
+}
+
+async function load(id, el){
+  busy = true; const bar = el.querySelector(".bar"), fill = bar.querySelector("i"), st = el.querySelector(".st");
+  bar.hidden = false; list.querySelectorAll("button").forEach(b => b.disabled = true);
+  try{
+    try{ await navigator.storage?.persist?.(); }catch{}
+    if(engine){ await engine.unload(); engine = null; }
+    engine = new webllm.MLCEngine({initProgressCallback: r => {
+      fill.style.width = Math.round(r.progress*100) + "%"; st.textContent = r.text; }});
+    await engine.reload(id);
+    current = id; localStorage.setItem("model", id);
+    status.textContent = id.replace(/-MLC$/,"") + " · on this phone";
+    history.length = 0; emptyState();
+    $("#sheet").classList.remove("open");
+  }catch(err){
+    engine = null; st.textContent = "Couldn’t load this model: " + (err.message || err) + " Try a smaller one.";
+  }
+  busy = false; renderList();
+}
+
+$("#open").onclick = () => { $("#sheet").classList.add("open"); renderList(); };
+$("#close").onclick = () => $("#sheet").classList.remove("open");
+
+/* ---------- Chat ---------- */
+$("#f").onsubmit = async e => {
+  e.preventDefault();
+  const text = input.value.trim(); if(!text || busy) return;
+  if(!engine){ $("#open").click(); return; }
+  input.value = ""; input.style.height = "auto";
+  add("user", text); history.push({role:"user", content:text});
+  const out = add("bot", "…"); out.parentElement.classList.add("think"); busy = true; $("#send").disabled = true;
+  try{
+    const stream = await engine.chat.completions.create({
+      messages:[{role:"system", content:SYSTEM}, ...history], stream:true, max_tokens:1024});
+    let full = "";
+    for await (const c of stream){
+      full += c.choices[0]?.delta?.content || "";
+      out.textContent = full || "…"; log.scrollTop = log.scrollHeight;
+    }
+    history.push({role:"assistant", content:full});
+  }catch(err){
+    out.textContent = "Something went wrong: " + (err.message || err) + " If the phone ran out of memory, pick a smaller model.";
+  }
+  out.parentElement.classList.remove("think");
+  busy = false; $("#send").disabled = false;
+};
+input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight,120) + "px"; });
+input.addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey && matchMedia("(hover:hover)").matches){ e.preventDefault(); $("#f").requestSubmit(); } });
+
+/* ---------- Offline ---------- */
+const CDN = "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.79/+esm";
+async function offlineStatus(){
+  const off = $("#off");
+  try{
+    const ok = "caches" in window && await caches.match(CDN);
+    off.textContent = ok ? "Offline ready: the app and AI engine are saved on this phone. Downloaded models work with no connection."
+                         : "Open this page once while online to finish setting up offline use.";
+  }catch{ off.textContent = ""; }
+}
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("sw.js").then(async () => {
+    await navigator.serviceWorker.ready;
+    if(!navigator.serviceWorker.controller && !localStorage.getItem("swReload")){
+      localStorage.setItem("swReload","1"); location.reload(); return;
+    }
+    offlineStatus();
+  }).catch(offlineStatus);
+}else offlineStatus();
+$("#open").addEventListener("click", offlineStatus);
+</script>
+</body>
+</html>
